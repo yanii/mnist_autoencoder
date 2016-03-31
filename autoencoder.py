@@ -16,7 +16,7 @@ class CrossEntropyAutoEncoder(chainer.Chain):
         y = self.autoencoderback(h)
         #self.loss = F.mean_squared_error(y, x)
         self.loss = F.cross_entropy(y, x)
-        self.mean_squared_error = F.mean_squared_error(y, x)
+        self.mean_squared_error = F.mean_squared_error(y*255, x*255)
         return self.loss
 
 class AutoEncoder(chainer.Chain):

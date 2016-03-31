@@ -162,7 +162,8 @@ for epoch in six.moves.range(1, n_epoch + 1):
                 )
             )
 
-            image = scipy.misc.toimage(stack*255, cmin=0.0, cmax=255)
+            stack = stack*255
+            image = scipy.misc.toimage(stack, cmin=0.0, cmax=255)
             image.save('images/'+str(i)+'.png')
             plt.imshow(image, cmap='gist_gray', interpolation='none', vmin=0, vmax=255)
             plt.draw()
