@@ -3,6 +3,7 @@ import chainer.functions as F
 import chainer.links as L
 
 import numpy as np
+
 class CrossEntropyAutoEncoder(chainer.Chain):
     def __init__(self, autoencoder, autoencoderback):
         super(CrossEntropyAutoEncoder, self).__init__(
@@ -13,6 +14,7 @@ class CrossEntropyAutoEncoder(chainer.Chain):
     def __call__(self, x, t):
         h = self.autoencoder(x)
         y = self.autoencoderback(h)
+        #self.loss = F.mean_squared_error(y, x)
         self.loss = F.cross_entropy(y, x)
         self.mean_squared_error = F.mean_squared_error(y, x)
         return self.loss
@@ -50,17 +52,17 @@ class AutoEncoder(chainer.Chain):
                 src = self.forwardchain.linear_layers[len(self.linear_layers) - 1 - index].__dict__
                 dst = self.linear_layers[index].__dict__
                 # Note: We do a shallow copy on purpose! Want weight sharing
-                dst = src
-                #for name in self._params:
-                #    dst[name] = src[name]
+                #dst = src
+                for name in self._params:
+                    dst[name] = src[name].T
 
             for index in range(len(self.norm_layers)-1):
                 src = self.forwardchain.norm_layers[len(self.norm_layers) - 1 - index].__dict__
                 dst = self.norm_layers[index].__dict__
                 # Note: We do a shallow copy on purpose! Want weight sharing
-                dst = src
-                #for name in self._params:
-                #    dst[name] = src[name]
+                #dst = src
+                for name in self._params:
+                    dst[name] = src[name].T
 
     def __call__(self, x):
         # Forward propagation

@@ -10,6 +10,9 @@ import time
 
 import numpy as np
 import six
+import math
+import scipy.misc
+import matplotlib.pyplot as plt
 
 import chainer
 from chainer import computational_graph
@@ -57,9 +60,11 @@ x_train, x_test = np.split(mnist['data'],   [N])
 y_train, y_test = np.split(mnist['target'], [N])
 N_test = y_test.size
 
+WEIGHT_DECAY = 0
 INPUT_SIZE  = 28 * 28 # 784
 OUTPUT_SIZE = 30
 LAYER_SIZES = [INPUT_SIZE, 1000, 500, 250, OUTPUT_SIZE]
+SAVE_IMAGES=True
 
 # Prepare multi-layer perceptron model, defined in net.py
 if args.net == 'normal':
@@ -78,6 +83,8 @@ xp = np if args.gpu < 0 else cuda.cupy
 
 # Setup optimizer
 optimizer = optimizers.SGD()
+if WEIGHT_DECAY > 0:
+    optimizer.add_hook(chainer.optimizer.WeightDecay(WEIGHT_DECAY))
 optimizer.setup(model)
 
 # Init/Resume
@@ -122,6 +129,12 @@ for epoch in six.moves.range(1, n_epoch + 1):
     # evaluation
     sum_mean_squared_error = 0
     sum_loss = 0
+
+    if SAVE_IMAGES:
+        plt.axis('off')
+        plt.ion()
+        plt.show()
+
     for i in six.moves.range(0, N_test, batchsize):
         x = chainer.Variable(xp.asarray(x_test[i:i + batchsize]),
                              volatile='on')
@@ -130,6 +143,30 @@ for epoch in six.moves.range(1, n_epoch + 1):
         loss = model(x, t)
         sum_loss += float(loss.data) * len(t.data)
         sum_mean_squared_error += float(model.mean_squared_error.data) * len(t.data)
+
+        if SAVE_IMAGES and i == 0:
+            y = aeback(ae(x))
+
+            if args.gpu >= 0:
+                x_cpu = cuda.to_cpu(x.data[0])
+                y_cpu = cuda.to_cpu(y.data[0])
+            else:
+                x_cpu = x.data[0]
+                y_cpu = y.data[0]
+
+            imagesize = math.sqrt(x_cpu.shape[0])
+            stack = np.hstack(
+                (
+                    np.reshape(x_cpu, (imagesize, imagesize)),
+                    np.reshape(y_cpu, (imagesize, imagesize))
+                )
+            )
+
+            image = scipy.misc.toimage(stack*255, cmin=0.0, cmax=255)
+            image.save('images/'+str(i)+'.png')
+            plt.imshow(image, cmap='gist_gray', interpolation='none', vmin=0, vmax=255)
+            plt.draw()
+            plt.pause(0.001)
 
     print('test  mean loss={}, MSE={}'.format(
         sum_loss / N_test, sum_mean_squared_error / N_test))
