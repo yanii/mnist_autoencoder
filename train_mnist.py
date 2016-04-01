@@ -87,7 +87,7 @@ if args.gpu >= 0:
 xp = np if args.gpu < 0 else cuda.cupy
 
 # Setup optimizer
-optimizer = optimizers.SGD()
+optimizer = optimizers.MomentumSGD()
 optimizer.setup(model)
 optimizer.lr = INIT_LR
 if WEIGHT_DECAY > 0:
