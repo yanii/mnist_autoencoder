@@ -64,12 +64,13 @@ N_test = y_test.size
 print ('train size:', y_train.size, 'val size: ', y_val.size, 'test size:', y_test.size)
 
 WEIGHT_DECAY = 0.0001
-INIT_LR = 1.0
+INIT_LR = 0.1
 
 INPUT_SIZE  = 28 * 28 # 784
 OUTPUT_SIZE = 30
 LAYER_SIZES = [INPUT_SIZE, 1000, 500, 250, OUTPUT_SIZE]
 SAVE_IMAGES=True
+N_IMAGES_SAVE=10
 
 # Prepare multi-layer perceptron model, defined in net.py
 if args.net == 'normal':
@@ -118,7 +119,7 @@ for epoch in six.moves.range(1, n_epoch + 1):
         # Pass the loss function (Classifier defines it) and its arguments
         optimizer.update(model, x, t)
         iterations = 1+(((epoch-1)*N)+i)/batchsize
-        #optimizer.lr = float(INIT_LR)/(1.0 + float(INIT_LR)*WEIGHT_DECAY*iterations)
+        optimizer.lr = float(INIT_LR)/(1.0 + float(INIT_LR)*WEIGHT_DECAY*iterations)
 
         if epoch == 1 and i == 0:
             with open('graph.dot', 'w') as o:
@@ -135,7 +136,6 @@ for epoch in six.moves.range(1, n_epoch + 1):
     throughput = N / elapsed_time
     print('train mean loss={}, MSE={}, iterations={}, throughput={} images/sec'.format(
         sum_loss / N, sum_mean_squared_error / N, iterations, throughput))
-    optimizer.lr *= 0.97
 
 
     # evaluation
@@ -160,32 +160,43 @@ for epoch in six.moves.range(1, n_epoch + 1):
             y = aeback(ae(x))
 
             if args.gpu >= 0:
-                x_cpu = cuda.to_cpu(x.data[0])
-                y_cpu = cuda.to_cpu(y.data[0])
+                images = cuda.to_cpu(x.data)[0:N_IMAGES_SAVE]
+                y_cpu = cuda.to_cpu(y.data)
             else:
-                x_cpu = x.data[0]
-                y_cpu = y.data[0]
+                images = x.data[0:N_IMAGES_SAVE]
+                y_cpu = y.data
 
-            imagesize = math.sqrt(x_cpu.shape[0])
-            stack = np.hstack(
-                (
-                    np.reshape(x_cpu, (imagesize, imagesize)),
-                    np.reshape(y_cpu, (imagesize, imagesize))
+            vstacked = []
+            for i in xrange(len(images)):
+                imagesize = math.sqrt(images[0].shape[0])
+                vstack = np.vstack(
+                    (
+                        images[i].reshape((imagesize, imagesize)),
+                        y_cpu[i].reshape((imagesize, imagesize))
+                    )
                 )
-            )
+                vstacked.append(vstack)
+            stack = np.hstack(vstacked)
 
             stack = stack*255
             image = scipy.misc.toimage(stack, cmin=0.0, cmax=255)
             #image.save('images/'+str(i)+'.png')
             plt.imshow(image, cmap='gist_gray', interpolation='none', vmin=0, vmax=255)
+            #plt.tight_layout()
             plt.draw()
-
-            plt.pause(0.001)
+            plt.pause(0.002)
     print('val  mean loss={}, MSE={}'.format(
         sum_loss / N_val, sum_mean_squared_error / N_val))
 
+    if epoch % 50 == 0:
+        # Save the model and the optimizer
+        print('save the model')
+        serializers.save_npz('autoencoder.model', model)
+        print('save the optimizer')
+        serializers.save_npz('autoencoder.state', optimizer)
+
 # Save the model and the optimizer
 print('save the model')
-serializers.save_npz('mlp.model', model)
+serializers.save_npz('autoencoder.model', model)
 print('save the optimizer')
-serializers.save_npz('mlp.state', optimizer)
+serializers.save_npz('autoencoder.state', optimizer)

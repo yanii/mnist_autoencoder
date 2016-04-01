@@ -14,7 +14,6 @@ class CrossEntropyAutoEncoder(chainer.Chain):
     def __call__(self, x, t):
         h = self.autoencoder(x)
         y = self.autoencoderback(h)
-        #self.loss = F.mean_squared_error(y, x)
         self.loss = F.cross_entropy(y, x)
         self.mean_squared_error = F.mean_squared_error(y*255, x*255)
         return self.loss
@@ -35,7 +34,7 @@ class MSEAutoEncoder(chainer.Chain):
 
 class AutoEncoder(chainer.Chain):
     def __init__(self, layer_sizes, forwardchain=None, use_bn=True, nobias=True,
-                 activation_type = F.sigmoid):
+                 activation_type = F.relu):
         self.use_bn = use_bn
         self.nobias = nobias
         self.activation = activation_type
@@ -49,13 +48,28 @@ class AutoEncoder(chainer.Chain):
 
         # Create and register three layers for this MLP
         super(AutoEncoder, self).__init__(
-            layer1 = L.Linear(layer_sizes[0], layer_sizes[1], nobias=self.nobias, initialW=np.random.normal(0, np.sqrt( (2. if self.activation == F.relu else 1.) / layer_sizes[1]), (layer_sizes[1], layer_sizes[0]))),
+            layer1 = L.Linear(layer_sizes[0], layer_sizes[1], nobias=self.nobias,
+            initialW=np.random.normal(0,
+                np.sqrt( (2. if self.activation == F.relu else 1.) / (layer_sizes[0]*layer_sizes[1])),
+                (layer_sizes[1], layer_sizes[0]))),
             norm1 = L.BatchNormalization(layer_sizes[1]),
-            layer2 = L.Linear(layer_sizes[1], layer_sizes[2], nobias=self.nobias, initialW=np.random.normal(0, np.sqrt( (2. if self.activation == F.relu else 1.) / layer_sizes[2]), (layer_sizes[2], layer_sizes[1]))),
+
+            layer2 = L.Linear(layer_sizes[1], layer_sizes[2], nobias=self.nobias,
+                initialW=np.random.normal(0,
+                    np.sqrt( (2. if self.activation == F.relu else 1.) / (layer_sizes[1]*layer_sizes[2])),
+                    (layer_sizes[2], layer_sizes[1]))),
             norm2 = L.BatchNormalization(layer_sizes[2]),
-            layer3 = L.Linear(layer_sizes[2], layer_sizes[3], nobias=self.nobias, initialW=np.random.normal(0, np.sqrt( (2. if self.activation == F.relu else 1.) / layer_sizes[3]), (layer_sizes[3], layer_sizes[2]))),
+
+            layer3 = L.Linear(layer_sizes[2], layer_sizes[3], nobias=self.nobias,
+                initialW=np.random.normal(0,
+                    np.sqrt( (2. if self.activation == F.relu else 1.) / (layer_sizes[2]*layer_sizes[3])),
+                    (layer_sizes[3], layer_sizes[2]))),
             norm3 = L.BatchNormalization(layer_sizes[3]),
-            layer4 = L.Linear(layer_sizes[3], layer_sizes[4], nobias=self.nobias, initialW=np.random.normal(0, np.sqrt( (2. if self.activation == F.relu else 1.) / layer_sizes[4]), (layer_sizes[4], layer_sizes[3]))),
+
+            layer4 = L.Linear(layer_sizes[3], layer_sizes[4], nobias=self.nobias,
+                initialW=np.random.normal(0,
+                    np.sqrt( (2. if self.activation == F.relu else 1.) / (layer_sizes[3]*layer_sizes[4])),
+                    (layer_sizes[4], layer_sizes[3]))),
         )
         self.linear_layers = [self.layer1, self.layer2, self.layer3, self.layer4]
         self.norm_layers = [self.norm1, self.norm2, self.norm3]
