@@ -55,12 +55,17 @@ mnist['data'] = mnist['data'].astype(np.float32)
 mnist['data'] /= 255
 mnist['target'] = mnist['target'].astype(np.int32)
 
-N = 60000
-x_train, x_test = np.split(mnist['data'],   [N])
-y_train, y_test = np.split(mnist['target'], [N])
+#N_test = 10000
+N_val = 10000
+N = 60000 - N_val
+x_train, x_val, x_test = np.split(mnist['data'],   [N, N+N_val])
+y_train, y_val, y_test = np.split(mnist['target'], [N, N+N_val])
 N_test = y_test.size
+print ('train size:', y_train.size, 'val size: ', y_val.size, 'test size:', y_test.size)
 
-WEIGHT_DECAY = 0
+WEIGHT_DECAY = 0.
+INIT_LR = 0.01
+
 INPUT_SIZE  = 28 * 28 # 784
 OUTPUT_SIZE = 30
 LAYER_SIZES = [INPUT_SIZE, 1000, 500, 250, OUTPUT_SIZE]
@@ -83,9 +88,10 @@ xp = np if args.gpu < 0 else cuda.cupy
 
 # Setup optimizer
 optimizer = optimizers.SGD()
+optimizer.setup(model)
+optimizer.lr = INIT_LR
 if WEIGHT_DECAY > 0:
     optimizer.add_hook(chainer.optimizer.WeightDecay(WEIGHT_DECAY))
-optimizer.setup(model)
 
 # Init/Resume
 if args.initmodel:
@@ -97,7 +103,7 @@ if args.resume:
 
 # Learning loop
 for epoch in six.moves.range(1, n_epoch + 1):
-    print('epoch', epoch)
+    print('epoch', epoch, 'lr', optimizer.lr)
 
     # training
     perm = np.random.permutation(N)
@@ -110,6 +116,8 @@ for epoch in six.moves.range(1, n_epoch + 1):
 
         # Pass the loss function (Classifier defines it) and its arguments
         optimizer.update(model, x, t)
+        iterations = 1+(((epoch-1)*N)+i)/batchsize
+        #optimizer.lr = float(INIT_LR)/(1.0 + float(INIT_LR)*WEIGHT_DECAY*iterations)
 
         if epoch == 1 and i == 0:
             with open('graph.dot', 'w') as o:
@@ -120,11 +128,14 @@ for epoch in six.moves.range(1, n_epoch + 1):
 
         sum_loss += float(model.loss.data) * len(t.data)
         sum_mean_squared_error += float(model.mean_squared_error.data) * len(t.data)
+
     end = time.time()
     elapsed_time = end - start
     throughput = N / elapsed_time
-    print('train mean loss={}, MSE={}, throughput={} images/sec'.format(
-        sum_loss / N, sum_mean_squared_error / N, throughput))
+    print('train mean loss={}, MSE={}, iterations={}, throughput={} images/sec'.format(
+        sum_loss / N, sum_mean_squared_error / N, iterations, throughput))
+    optimizer.lr *= 0.97
+
 
     # evaluation
     sum_mean_squared_error = 0
@@ -135,10 +146,10 @@ for epoch in six.moves.range(1, n_epoch + 1):
         plt.ion()
         plt.show()
 
-    for i in six.moves.range(0, N_test, batchsize):
-        x = chainer.Variable(xp.asarray(x_test[i:i + batchsize]),
+    for i in six.moves.range(0, N_val, batchsize):
+        x = chainer.Variable(xp.asarray(x_val[i:i + batchsize]),
                              volatile='on')
-        t = chainer.Variable(xp.asarray(y_test[i:i + batchsize]),
+        t = chainer.Variable(xp.asarray(y_val[i:i + batchsize]),
                              volatile='on')
         loss = model(x, t)
         sum_loss += float(loss.data) * len(t.data)
@@ -164,13 +175,13 @@ for epoch in six.moves.range(1, n_epoch + 1):
 
             stack = stack*255
             image = scipy.misc.toimage(stack, cmin=0.0, cmax=255)
-            image.save('images/'+str(i)+'.png')
+            #image.save('images/'+str(i)+'.png')
             plt.imshow(image, cmap='gist_gray', interpolation='none', vmin=0, vmax=255)
             plt.draw()
-            plt.pause(0.001)
 
-    print('test  mean loss={}, MSE={}'.format(
-        sum_loss / N_test, sum_mean_squared_error / N_test))
+            plt.pause(0.001)
+    print('val  mean loss={}, MSE={}'.format(
+        sum_loss / N_val, sum_mean_squared_error / N_val))
 
 # Save the model and the optimizer
 print('save the model')
