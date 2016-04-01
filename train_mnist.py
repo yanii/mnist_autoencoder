@@ -22,7 +22,7 @@ from chainer import optimizers
 from chainer import serializers
 
 import data
-from autoencoder import AutoEncoder,CrossEntropyAutoEncoder
+from autoencoder import AutoEncoder,CrossEntropyAutoEncoder,MSEAutoEncoder
 
 parser = argparse.ArgumentParser(description='Chainer example: MNIST')
 parser.add_argument('--initmodel', '-m', default='',
@@ -63,8 +63,8 @@ y_train, y_val, y_test = np.split(mnist['target'], [N, N+N_val])
 N_test = y_test.size
 print ('train size:', y_train.size, 'val size: ', y_val.size, 'test size:', y_test.size)
 
-WEIGHT_DECAY = 0.
-INIT_LR = 0.01
+WEIGHT_DECAY = 0.0001
+INIT_LR = 1.0
 
 INPUT_SIZE  = 28 * 28 # 784
 OUTPUT_SIZE = 30
@@ -79,7 +79,8 @@ else:
     ae = AutoEncoder(LAYER_SIZES, use_bn=True)
     aeback = AutoEncoder(LAYER_SIZES, use_bn=True, forwardchain=ae)
 
-model = CrossEntropyAutoEncoder(ae, aeback)
+#model = CrossEntropyAutoEncoder(ae, aeback)
+model = MSEAutoEncoder(ae, aeback)
 
 if args.gpu >= 0:
     cuda.get_device(args.gpu).use()

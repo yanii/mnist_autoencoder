@@ -19,6 +19,20 @@ class CrossEntropyAutoEncoder(chainer.Chain):
         self.mean_squared_error = F.mean_squared_error(y*255, x*255)
         return self.loss
 
+class MSEAutoEncoder(chainer.Chain):
+    def __init__(self, autoencoder, autoencoderback):
+        super(MSEAutoEncoder, self).__init__(
+            autoencoder=autoencoder,
+            autoencoderback=autoencoderback
+        )
+
+    def __call__(self, x, t):
+        h = self.autoencoder(x)
+        y = self.autoencoderback(h)
+        self.loss = F.mean_squared_error(y, x)
+        self.mean_squared_error = F.mean_squared_error(y*255, x*255)
+        return self.loss
+
 class AutoEncoder(chainer.Chain):
     def __init__(self, layer_sizes, forwardchain=None, use_bn=True, nobias=True,
                  activation_type = F.sigmoid):
