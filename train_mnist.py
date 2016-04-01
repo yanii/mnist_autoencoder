@@ -69,7 +69,7 @@ INIT_LR = 0.01
 INPUT_SIZE  = 28 * 28 # 784
 OUTPUT_SIZE = 30
 LAYER_SIZES = [INPUT_SIZE, 1000, 500, 250, OUTPUT_SIZE]
-SAVE_IMAGES=True
+SAVE_IMAGES=False
 
 # Prepare multi-layer perceptron model, defined in net.py
 if args.net == 'normal':
