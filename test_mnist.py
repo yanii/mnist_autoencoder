@@ -93,8 +93,8 @@ for i in six.moves.range(0, N_test, batchsize):
     t = chainer.Variable(xp.asarray(y_test[i:i + batchsize]),
                          volatile='on')
     loss = model(x, t)
-    sum_loss += float(loss.data) * len(t.data)
-    sum_mean_squared_error += float(model.mean_squared_error.data) * len(t.data)
+    sum_loss += float(loss.data) #* len(t.data)
+    sum_mean_squared_error += float(model.mean_squared_error.data) #* len(t.data)
 
     if SAVE_IMAGES:
         y = aeback(ae(x))

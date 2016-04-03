@@ -128,8 +128,8 @@ for epoch in six.moves.range(1, n_epoch + 1):
                 o.write(g.dump())
             print('graph generated')
 
-        sum_loss += float(model.loss.data) * len(t.data)
-        sum_mean_squared_error += float(model.mean_squared_error.data) * len(t.data)
+        sum_loss += float(model.loss.data)# * len(t.data)
+        sum_mean_squared_error += float(model.mean_squared_error.data)# * len(t.data)
 
     end = time.time()
     elapsed_time = end - start
@@ -153,8 +153,8 @@ for epoch in six.moves.range(1, n_epoch + 1):
         t = chainer.Variable(xp.asarray(y_val[i:i + batchsize]),
                              volatile='on')
         loss = model(x, t)
-        sum_loss += float(loss.data) * len(t.data)
-        sum_mean_squared_error += float(model.mean_squared_error.data) * len(t.data)
+        sum_loss += float(loss.data)# * len(t.data)
+        sum_mean_squared_error += float(model.mean_squared_error.data)# * len(t.data)
 
         if SAVE_IMAGES and i == 0:
             y = aeback(ae(x))
