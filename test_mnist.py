@@ -110,7 +110,7 @@ for i in six.moves.range(0, N_test, batchsize):
 
         imagesize = math.sqrt(x_cpu[0].shape[0])
         for j in six.moves.range(0, batchsize):
-            stack = np.hstack(
+            stack = np.vstack(
                 (
                     np.reshape(x_cpu[j], (imagesize, imagesize)),
                     np.reshape(y_cpu[j], (imagesize, imagesize))

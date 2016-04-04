@@ -56,7 +56,7 @@ mnist['data'] /= 255
 mnist['target'] = mnist['target'].astype(np.int32)
 
 #N_test = 10000
-N_val = 10000
+N_val = 0
 N = 60000 - N_val
 x_train, x_val, x_test = np.split(mnist['data'],   [N, N+N_val])
 y_train, y_val, y_test = np.split(mnist['target'], [N, N+N_val])
@@ -95,6 +95,14 @@ optimizer.lr = INIT_LR
 if WEIGHT_DECAY > 0:
     optimizer.add_hook(chainer.optimizer.WeightDecay(WEIGHT_DECAY))
 
+if N_val > 0:
+    print ('Using validation set of', N_val, 'images')
+    N_test = N_val
+    x_test = x_val
+    y_test = y_val
+else:
+    print ('Using test set')
+
 # Init/Resume
 if args.initmodel:
     print('Load model from', args.initmodel)
@@ -104,8 +112,9 @@ if args.resume:
     serializers.load_npz(args.resume, optimizer)
 
 # Learning loop
-for epoch in six.moves.range(1, n_epoch + 1):
-    print('epoch', epoch, 'lr', optimizer.lr)
+for epoch in six.moves.range(optimizer.epoch, n_epoch + 1):
+    print('epoch', optimizer.epoch, 'lr', optimizer.lr)
+    optimizer.new_epoch()
 
     # training
     perm = np.random.permutation(N)
@@ -119,8 +128,7 @@ for epoch in six.moves.range(1, n_epoch + 1):
         # Pass the loss function (Classifier defines it) and its arguments
         model.setTrain()
         optimizer.update(model, x)
-        iterations = 1+(((epoch-1)*N)+i)/batchsize
-        optimizer.lr = float(INIT_LR)/(1.0 + float(INIT_LR)*WEIGHT_DECAY*iterations)
+        optimizer.lr = float(INIT_LR)/(1.0 + float(INIT_LR)*WEIGHT_DECAY*optimizer.t)
 
         if epoch == 1 and i == 0:
             with open('graph.dot', 'w') as o:
@@ -138,8 +146,7 @@ for epoch in six.moves.range(1, n_epoch + 1):
     elapsed_time = end - start
     throughput = N / elapsed_time
     print('train mean loss={}, MSE={}, iterations={}, throughput={} images/sec'.format(
-        sum_loss / N, sum_mean_squared_error / N, iterations, throughput))
-
+        sum_loss / N, sum_mean_squared_error / N, optimizer.t, throughput))
 
     # evaluation
     sum_mean_squared_error = 0
@@ -150,10 +157,10 @@ for epoch in six.moves.range(1, n_epoch + 1):
         plt.ion()
         plt.show()
 
-    for i in six.moves.range(0, N_val, batchsize):
-        x = chainer.Variable(xp.asarray(x_val[i:i + batchsize]),
+    for i in six.moves.range(0, N_test, batchsize):
+        x = chainer.Variable(xp.asarray(x_test[i:i + batchsize]),
                              volatile='on')
-        t = chainer.Variable(xp.asarray(y_val[i:i + batchsize]),
+        t = chainer.Variable(xp.asarray(y_test[i:i + batchsize]),
                              volatile='on')
         model.setTest()
         loss = model(x)
@@ -189,8 +196,12 @@ for epoch in six.moves.range(1, n_epoch + 1):
             #plt.tight_layout()
             plt.draw()
             plt.pause(0.002)
-    print('val  mean loss={}, MSE={}'.format(
-        sum_loss / N_val, sum_mean_squared_error / N_val))
+    if N_val > 0:
+        print('val mean loss={}, MSE={}'.format(
+            sum_loss / N_val, sum_mean_squared_error / N_val))
+    else:
+        print('test mean loss={}, MSE={}'.format(
+            sum_loss / N_test, sum_mean_squared_error / N_test))
 
     if epoch % 50 == 0:
         # Save the model and the optimizer
