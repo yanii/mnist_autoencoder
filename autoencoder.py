@@ -21,8 +21,10 @@ class CrossEntropyAutoEncoder(chainer.Chain):
 
     def setTrain(self):
         self.autoencoder.train = True
+        self.autoencoderback.train = True
     def setTest(self):
         self.autoencoder.train = False
+        self.autoencoderback.train = False
 
 class MSEAutoEncoder(chainer.Chain):
     def __init__(self, autoencoder, autoencoderback):
