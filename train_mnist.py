@@ -63,8 +63,8 @@ y_train, y_val, y_test = np.split(mnist['target'], [N, N+N_val])
 N_test = y_test.size
 print ('train size:', y_train.size, 'val size: ', y_val.size, 'test size:', y_test.size)
 
-WEIGHT_DECAY = 0.0001
-INIT_LR = 0.1
+WEIGHT_DECAY = 0.00005
+INIT_LR = 0.5
 
 INPUT_SIZE  = 28 * 28 # 784
 OUTPUT_SIZE = 30
@@ -117,7 +117,8 @@ for epoch in six.moves.range(1, n_epoch + 1):
         t = chainer.Variable(xp.asarray(y_train[perm[i:i + batchsize]]))
 
         # Pass the loss function (Classifier defines it) and its arguments
-        optimizer.update(model, x, t)
+        model.setTrain()
+        optimizer.update(model, x)
         iterations = 1+(((epoch-1)*N)+i)/batchsize
         optimizer.lr = float(INIT_LR)/(1.0 + float(INIT_LR)*WEIGHT_DECAY*iterations)
 
@@ -128,7 +129,9 @@ for epoch in six.moves.range(1, n_epoch + 1):
                 o.write(g.dump())
             print('graph generated')
 
-        sum_loss += float(model.loss.data)# * len(t.data)
+        model.setTest()
+        loss = model(x)
+        sum_loss += float(loss.data)# * len(t.data)
         sum_mean_squared_error += float(model.mean_squared_error.data)# * len(t.data)
 
     end = time.time()
@@ -152,12 +155,13 @@ for epoch in six.moves.range(1, n_epoch + 1):
                              volatile='on')
         t = chainer.Variable(xp.asarray(y_val[i:i + batchsize]),
                              volatile='on')
-        loss = model(x, t)
+        model.setTest()
+        loss = model(x)
         sum_loss += float(loss.data)# * len(t.data)
         sum_mean_squared_error += float(model.mean_squared_error.data)# * len(t.data)
 
         if SAVE_IMAGES and i == 0:
-            y = aeback(ae(x))
+            y = model.y
 
             if args.gpu >= 0:
                 images = cuda.to_cpu(x.data)[0:N_IMAGES_SAVE]

@@ -10,13 +10,19 @@ class CrossEntropyAutoEncoder(chainer.Chain):
             autoencoder=autoencoder,
             autoencoderback=autoencoderback
         )
+        autoencoderback.train = False
 
-    def __call__(self, x, t):
+    def __call__(self, x):
         h = self.autoencoder(x)
-        y = self.autoencoderback(h)
-        self.loss = F.cross_entropy(y, x)
-        self.mean_squared_error = F.mean_squared_error(y*255, x*255)
+        self.y = self.autoencoderback(h)
+        self.loss = F.cross_entropy(self.y, x)
+        self.mean_squared_error = F.mean_squared_error(self.y*255, x*255)
         return self.loss
+
+    def setTrain(self):
+        self.autoencoder.train = True
+    def setTest(self):
+        self.autoencoder.train = False
 
 class MSEAutoEncoder(chainer.Chain):
     def __init__(self, autoencoder, autoencoderback):
@@ -25,20 +31,29 @@ class MSEAutoEncoder(chainer.Chain):
             autoencoderback=autoencoderback
         )
 
-    def __call__(self, x, t):
+    def __call__(self, x):
         h = self.autoencoder(x)
-        y = self.autoencoderback(h)
-        self.loss = F.mean_squared_error(y, x)
-        self.mean_squared_error = F.mean_squared_error(y*255, x*255)
+        self.y = self.autoencoderback(h)
+        self.loss = F.mean_squared_error(self.y, x)
+        self.mean_squared_error = F.mean_squared_error(self.y*255, x*255)
         return self.loss
+
+    def setTrain(self):
+        self.autoencoder.train = True
+        self.autoencoderback.train = True
+    def setTest(self):
+        self.autoencoder.train = False
+        self.autoencoderback.train = False
+
 
 class AutoEncoder(chainer.Chain):
     def __init__(self, layer_sizes, forwardchain=None, use_bn=True, nobias=True,
-                 activation_type = F.relu):
+                 activation_type = F.relu, train=True):
         self.use_bn = use_bn
         self.nobias = nobias
         self.activation = activation_type
         self.forwardchain = forwardchain
+        self.train = train
 
         assert(len(layer_sizes) == 5)
         if self.forwardchain:
@@ -95,9 +110,12 @@ class AutoEncoder(chainer.Chain):
     def __call__(self, x):
         # Forward propagation
         if self.use_bn:
-            h1 = self.activation(self.norm1(self.layer1(x)))
-            h2 = self.activation(self.norm2(self.layer2(h1)))
-            h3 = self.activation(self.norm3(self.layer3(h2)))
+            #h1 = self.activation(F.dropout(self.norm1(self.layer1(x), test=not self.train), ratio=0.1, train=self.train))
+            #h2 = self.activation(F.dropout(self.norm2(self.layer2(h1), test=not self.train), ratio=0.1, train=self.train))
+            #h3 = self.activation(F.dropout(self.norm3(self.layer3(h2), test=not self.train), ratio=0.1, train=self.train))
+            h1 = self.activation(self.norm1(self.layer1(x), test=not self.train))
+            h2 = self.activation(self.norm2(self.layer2(h1), test=not self.train))
+            h3 = self.activation(self.norm3(self.layer3(h2), test=not self.train))
         else:
             h1 = self.activation(self.layer1(x))
             h2 = self.activation(self.layer2(h1))
