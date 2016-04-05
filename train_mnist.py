@@ -69,7 +69,7 @@ INIT_LR = 0.5
 INPUT_SIZE  = 28 * 28 # 784
 OUTPUT_SIZE = 30
 LAYER_SIZES = [INPUT_SIZE, 1000, 500, 250, OUTPUT_SIZE]
-SAVE_IMAGES=True
+SAVE_IMAGES=False
 N_IMAGES_SAVE=10
 
 # Prepare multi-layer perceptron model, defined in net.py
@@ -206,9 +206,9 @@ for epoch in six.moves.range(optimizer.epoch, n_epoch + 1):
     if epoch % 50 == 0:
         # Save the model and the optimizer
         print('save the model')
-        serializers.save_npz('autoencoder.model', model)
+        serializers.save_npz('autoencoder_'+str(epoch)+'.model', model)
         print('save the optimizer')
-        serializers.save_npz('autoencoder.state', optimizer)
+        serializers.save_npz('autoencoder_'+str(epoch)+'.state', optimizer)
 
 # Save the model and the optimizer
 print('save the model')
