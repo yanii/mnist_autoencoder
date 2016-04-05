@@ -30,7 +30,7 @@ parser.add_argument('--initmodel', '-m', default='',
 parser.add_argument('--resume', '-r', default='',
                     help='Resume the optimization from snapshot')
 parser.add_argument('--net', '-n', choices=('normal', 'bn'),
-                    default='normal', help='Network type')
+                    default='bn', help='Network type')
 parser.add_argument('--gpu', '-g', default=-1, type=int,
                     help='GPU ID (negative value indicates CPU)')
 parser.add_argument('--epoch', '-e', default=20, type=int,
@@ -128,10 +128,9 @@ for epoch in six.moves.range(optimizer.epoch, n_epoch + 1):
 
         # Pass the loss function (Classifier defines it) and its arguments
         model.setTrain()
-        #optimizer.lr = float(INIT_LR)/(1.0 + float(INIT_LR)*WEIGHT_DECAY*optimizer.t)
-	#base_lr (1 - iter/max_iter) ^ (power)
-        optimizer.lr = float(INIT_LR)*(1.0 - float(optimizer.t)/(n_epoch*N/batchsize))**POWER
         optimizer.update(model, x)
+	#base_lr (1 - iter/max_iter) ^ (power)
+        optimizer.lr = float(INIT_LR)*max(0,(1.0 - float(optimizer.t)/(n_epoch*N/batchsize)))**POWER
 
 
         if epoch == 1 and i == 0:
