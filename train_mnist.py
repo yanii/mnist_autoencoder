@@ -210,9 +210,9 @@ for epoch in six.moves.range(optimizer.epoch, n_epoch + 1):
     if epoch % 50 == 0:
         # Save the model and the optimizer
         print('save the model')
-        serializers.save_npz('autoencoder.model', model)
+        serializers.save_npz('autoencoder_'+str(epoch)+'.model', model)
         print('save the optimizer')
-        serializers.save_npz('autoencoder.state', optimizer)
+        serializers.save_npz('autoencoder_'+str(epoch)+'.state', optimizer)
 
 # Save the model and the optimizer
 print('save the model')
