@@ -70,7 +70,7 @@ POWER = 0.5
 INPUT_SIZE  = 28 * 28 # 784
 OUTPUT_SIZE = 30
 LAYER_SIZES = [INPUT_SIZE, 1000, 500, 250, OUTPUT_SIZE]
-SAVE_IMAGES=True
+SAVE_IMAGES=False
 N_IMAGES_SAVE=10
 
 # Prepare multi-layer perceptron model, defined in net.py
@@ -128,11 +128,11 @@ for epoch in six.moves.range(optimizer.epoch, n_epoch + 1):
 
         # Pass the loss function (Classifier defines it) and its arguments
         model.setTrain()
-        optimizer.update(model, x)
         #optimizer.lr = float(INIT_LR)/(1.0 + float(INIT_LR)*WEIGHT_DECAY*optimizer.t)
 	#base_lr (1 - iter/max_iter) ^ (power)
-
         optimizer.lr = float(INIT_LR)*(1.0 - float(optimizer.t)/(n_epoch*N/batchsize))**POWER
+        optimizer.update(model, x)
+
 
         if epoch == 1 and i == 0:
             with open('graph.dot', 'w') as o:
