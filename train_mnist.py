@@ -22,7 +22,7 @@ from chainer import optimizers
 from chainer import serializers
 
 import data
-from autoencoder import AutoEncoder,CrossEntropyAutoEncoder
+from autoencoder import AutoEncoder,CrossEntropyAutoEncoder,MSEAutoEncoder
 
 parser = argparse.ArgumentParser(description='Chainer example: MNIST')
 parser.add_argument('--initmodel', '-m', default='',
@@ -56,20 +56,21 @@ mnist['data'] /= 255
 mnist['target'] = mnist['target'].astype(np.int32)
 
 #N_test = 10000
-N_val = 10000
+N_val = 0
 N = 60000 - N_val
 x_train, x_val, x_test = np.split(mnist['data'],   [N, N+N_val])
 y_train, y_val, y_test = np.split(mnist['target'], [N, N+N_val])
 N_test = y_test.size
 print ('train size:', y_train.size, 'val size: ', y_val.size, 'test size:', y_test.size)
 
-WEIGHT_DECAY = 0.
-INIT_LR = 0.01
+WEIGHT_DECAY = 0.00005
+INIT_LR = 0.5
 
 INPUT_SIZE  = 28 * 28 # 784
 OUTPUT_SIZE = 30
 LAYER_SIZES = [INPUT_SIZE, 1000, 500, 250, OUTPUT_SIZE]
-SAVE_IMAGES=False
+SAVE_IMAGES=True
+N_IMAGES_SAVE=10
 
 # Prepare multi-layer perceptron model, defined in net.py
 if args.net == 'normal':
@@ -79,7 +80,8 @@ else:
     ae = AutoEncoder(LAYER_SIZES, use_bn=True)
     aeback = AutoEncoder(LAYER_SIZES, use_bn=True, forwardchain=ae)
 
-model = CrossEntropyAutoEncoder(ae, aeback)
+#model = CrossEntropyAutoEncoder(ae, aeback)
+model = MSEAutoEncoder(ae, aeback)
 
 if args.gpu >= 0:
     cuda.get_device(args.gpu).use()
@@ -93,6 +95,14 @@ optimizer.lr = INIT_LR
 if WEIGHT_DECAY > 0:
     optimizer.add_hook(chainer.optimizer.WeightDecay(WEIGHT_DECAY))
 
+if N_val > 0:
+    print ('Using validation set of', N_val, 'images')
+    N_test = N_val
+    x_test = x_val
+    y_test = y_val
+else:
+    print ('Using test set')
+
 # Init/Resume
 if args.initmodel:
     print('Load model from', args.initmodel)
@@ -102,8 +112,9 @@ if args.resume:
     serializers.load_npz(args.resume, optimizer)
 
 # Learning loop
-for epoch in six.moves.range(1, n_epoch + 1):
-    print('epoch', epoch, 'lr', optimizer.lr)
+for epoch in six.moves.range(optimizer.epoch, n_epoch + 1):
+    print('epoch', optimizer.epoch, 'lr', optimizer.lr)
+    optimizer.new_epoch()
 
     # training
     perm = np.random.permutation(N)
@@ -115,9 +126,9 @@ for epoch in six.moves.range(1, n_epoch + 1):
         t = chainer.Variable(xp.asarray(y_train[perm[i:i + batchsize]]))
 
         # Pass the loss function (Classifier defines it) and its arguments
-        optimizer.update(model, x, t)
-        iterations = 1+(((epoch-1)*N)+i)/batchsize
-        #optimizer.lr = float(INIT_LR)/(1.0 + float(INIT_LR)*WEIGHT_DECAY*iterations)
+        model.setTrain()
+        optimizer.update(model, x)
+        optimizer.lr = float(INIT_LR)/(1.0 + float(INIT_LR)*WEIGHT_DECAY*optimizer.t)
 
         if epoch == 1 and i == 0:
             with open('graph.dot', 'w') as o:
@@ -126,16 +137,16 @@ for epoch in six.moves.range(1, n_epoch + 1):
                 o.write(g.dump())
             print('graph generated')
 
-        sum_loss += float(model.loss.data) * len(t.data)
-        sum_mean_squared_error += float(model.mean_squared_error.data) * len(t.data)
+        model.setTest()
+        loss = model(x)
+        sum_loss += float(loss.data)# * len(t.data)
+        sum_mean_squared_error += float(model.mean_squared_error.data)# * len(t.data)
 
     end = time.time()
     elapsed_time = end - start
     throughput = N / elapsed_time
     print('train mean loss={}, MSE={}, iterations={}, throughput={} images/sec'.format(
-        sum_loss / N, sum_mean_squared_error / N, iterations, throughput))
-    optimizer.lr *= 0.97
-
+        sum_loss / N, sum_mean_squared_error / N, optimizer.t, throughput))
 
     # evaluation
     sum_mean_squared_error = 0
@@ -146,45 +157,61 @@ for epoch in six.moves.range(1, n_epoch + 1):
         plt.ion()
         plt.show()
 
-    for i in six.moves.range(0, N_val, batchsize):
-        x = chainer.Variable(xp.asarray(x_val[i:i + batchsize]),
+    for i in six.moves.range(0, N_test, batchsize):
+        x = chainer.Variable(xp.asarray(x_test[i:i + batchsize]),
                              volatile='on')
-        t = chainer.Variable(xp.asarray(y_val[i:i + batchsize]),
+        t = chainer.Variable(xp.asarray(y_test[i:i + batchsize]),
                              volatile='on')
-        loss = model(x, t)
-        sum_loss += float(loss.data) * len(t.data)
-        sum_mean_squared_error += float(model.mean_squared_error.data) * len(t.data)
+        model.setTest()
+        loss = model(x)
+        sum_loss += float(loss.data)# * len(t.data)
+        sum_mean_squared_error += float(model.mean_squared_error.data)# * len(t.data)
 
         if SAVE_IMAGES and i == 0:
-            y = aeback(ae(x))
+            y = model.y
 
             if args.gpu >= 0:
-                x_cpu = cuda.to_cpu(x.data[0])
-                y_cpu = cuda.to_cpu(y.data[0])
+                images = cuda.to_cpu(x.data)[0:N_IMAGES_SAVE]
+                y_cpu = cuda.to_cpu(y.data)
             else:
-                x_cpu = x.data[0]
-                y_cpu = y.data[0]
+                images = x.data[0:N_IMAGES_SAVE]
+                y_cpu = y.data
 
-            imagesize = math.sqrt(x_cpu.shape[0])
-            stack = np.hstack(
-                (
-                    np.reshape(x_cpu, (imagesize, imagesize)),
-                    np.reshape(y_cpu, (imagesize, imagesize))
+            vstacked = []
+            for i in xrange(len(images)):
+                imagesize = math.sqrt(images[0].shape[0])
+                vstack = np.vstack(
+                    (
+                        images[i].reshape((imagesize, imagesize)),
+                        y_cpu[i].reshape((imagesize, imagesize))
+                    )
                 )
-            )
+                vstacked.append(vstack)
+            stack = np.hstack(vstacked)
 
             stack = stack*255
             image = scipy.misc.toimage(stack, cmin=0.0, cmax=255)
             #image.save('images/'+str(i)+'.png')
             plt.imshow(image, cmap='gist_gray', interpolation='none', vmin=0, vmax=255)
+            #plt.tight_layout()
             plt.draw()
+            plt.pause(0.002)
+    if N_val > 0:
+        print('val mean loss={}, MSE={}'.format(
+            sum_loss / N_val, sum_mean_squared_error / N_val))
+    else:
+        print('test mean loss={}, MSE={}'.format(
+            sum_loss / N_test, sum_mean_squared_error / N_test))
 
-            plt.pause(0.001)
-    print('val  mean loss={}, MSE={}'.format(
-        sum_loss / N_val, sum_mean_squared_error / N_val))
+    if epoch % 50 == 0:
+        # Save the model and the optimizer
+        print('save the model')
+        serializers.save_npz('autoencoder.model', model)
+        print('save the optimizer')
+        serializers.save_npz('autoencoder.state', optimizer)
 
 # Save the model and the optimizer
 print('save the model')
-serializers.save_npz('mlp.model', model)
+serializers.save_npz('autoencoder.model', model)
 print('save the optimizer')
-serializers.save_npz('mlp.state', optimizer)
+serializers.save_npz('autoencoder.state', optimizer)

@@ -22,7 +22,7 @@ from chainer import optimizers
 from chainer import serializers
 
 import data
-from autoencoder import AutoEncoder,CrossEntropyAutoEncoder
+from autoencoder import AutoEncoder,CrossEntropyAutoEncoder,MSEAutoEncoder
 
 parser = argparse.ArgumentParser(description='Chainer example: MNIST')
 parser.add_argument('--model', '-m',
@@ -67,7 +67,9 @@ else:
     ae = AutoEncoder(LAYER_SIZES, use_bn=True)
     aeback = AutoEncoder(LAYER_SIZES, use_bn=True, forwardchain=ae)
 
-model = CrossEntropyAutoEncoder(ae, aeback)
+#model = CrossEntropyAutoEncoder(ae, aeback)
+model = MSEAutoEncoder(ae, aeback)
+model.setTest()
 
 if args.gpu >= 0:
     cuda.get_device(args.gpu).use()
@@ -92,12 +94,12 @@ for i in six.moves.range(0, N_test, batchsize):
                          volatile='on')
     t = chainer.Variable(xp.asarray(y_test[i:i + batchsize]),
                          volatile='on')
-    loss = model(x, t)
-    sum_loss += float(loss.data) * len(t.data)
-    sum_mean_squared_error += float(model.mean_squared_error.data) * len(t.data)
+    loss = model(x)
+    sum_loss += float(loss.data) #* len(t.data)
+    sum_mean_squared_error += float(model.mean_squared_error.data) #* len(t.data)
 
     if SAVE_IMAGES:
-        y = aeback(ae(x))
+        y = model.y
 
         if args.gpu >= 0:
             x_cpu = cuda.to_cpu(x.data)
@@ -108,7 +110,7 @@ for i in six.moves.range(0, N_test, batchsize):
 
         imagesize = math.sqrt(x_cpu[0].shape[0])
         for j in six.moves.range(0, batchsize):
-            stack = np.hstack(
+            stack = np.vstack(
                 (
                     np.reshape(x_cpu[j], (imagesize, imagesize)),
                     np.reshape(y_cpu[j], (imagesize, imagesize))
