@@ -63,7 +63,7 @@ y_train, y_val, y_test = np.split(mnist['target'], [N, N+N_val])
 N_test = y_test.size
 print ('train size:', y_train.size, 'val size: ', y_val.size, 'test size:', y_test.size)
 
-WEIGHT_DECAY = 0.
+WEIGHT_DECAY = 0.000001
 INIT_LR = 0.5
 POWER = 0.5
 
